@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulario CRUD con Acceso a BD</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); }
+        h1 { color: #007bff; text-align: center; }
+        h2 { border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 25px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input[type="text"] { width: 95%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .crud-buttons button { padding: 10px 15px; margin-right: 10px; margin-top: 20px; border: none; border-radius: 5px; color: white; cursor: pointer; }
+        #insert-btn { background-color: #28a745; }
+        #modify-btn { background-color: #ffc107; color: #333; }
+        #delete-btn { background-color: #dc3545; }
+        #query-btn { background-color: #007bff; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .message { margin-top: 20px; padding: 10px; border-radius: 5px; text-align: center; }
+        .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Formulario CRUD de Estudiantes</h1>
+    <div id="status-message" class="message" style="display: none;"></div>
+    
+    <section>
+        <h2>Datos del Estudiante (CUD)</h2>
+        <p>Use el ID para Modificar o Borrar. Déjelo vacío para Insertar.</p>
+        
+        <label for="id">ID del Registro:</label>
+        <input type="text" id="id" placeholder="Automático al insertar">
+        
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" required>
+        
+        <label for="matricula">Matrícula:</label>
+        <input type="text" id="matricula" required>
+        
+        <label for="carrera">Carrera:</label>
+        <input type="text" id="carrera" required>
+
+        <div class="crud-buttons">
+            <button id="insert-btn" onclick="sendData('INSERT')">Insertar Registro (C)</button>
+            <button id="modify-btn" onclick="sendData('UPDATE')">Modificar Registro (U)</button>
+            <button id="delete-btn" onclick="sendData('DELETE')">Borrar Registro (D)</button>
+        </div>
+    </section>
+
+    <hr/>
+
+    <section>
+        <h2>Consulta de Registros (R)</h2>
+        <button id="query-btn" onclick="consultarRegistros()">Consultar Todos (R)</button>
+        <div id="registros-table">
+            </div>
+    </section>
+</div>
+
+<script>
+    const SERVER_URL = 'procesar_crud.php'; // URL del script PHP
+    const statusMessage = document.getElementById('status-message');
+
+    function showMessage(msg, type) {
+        statusMessage.textContent = msg;
+        statusMessage.className = `message ${type}`;
+        statusMessage.style.display = 'block';
+        setTimeout(() => { statusMessage.style.display = 'none'; }, 5000);
+    }
+
+    function sendData(action) {
+        const id = document.getElementById('id').value;
+        const nombre = document.getElementById('nombre').value;
+        const matricula = document.getElementById('matricula').value;
+        const carrera = document.getElementById('carrera').value;
+
+        if ((action === 'UPDATE' || action === 'DELETE') && !id) {
+            showMessage("Debe ingresar un ID para Modificar o Borrar.", 'error');
+            return;
+        }
+        if (action !== 'DELETE' && (!nombre || !matricula || !carrera)) {
+             showMessage("Debe completar todos los campos para Insertar o Modificar.", 'error');
+            return;
+        }
+
+        const data = { action, id, nombre, matricula, carrera };
+
+        fetch(SERVER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showMessage(`Operación '${action}' exitosa: ${result.message}`, 'success');
+                if (action !== 'DELETE') {
+                    document.getElementById('id').value = '';
+                    document.getElementById('nombre').value = '';
+                    document.getElementById('matricula').value = '';
+                    document.getElementById('carrera').value = '';
+                }
+                consultarRegistros();
+            } else {
+                showMessage(`Error en la operación '${action}': ${result.message}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error de red:', error);
+            showMessage(`Error de conexión con el servidor. (Verifique XAMPP)`, 'error');
+        });
+    }
+
+    function consultarRegistros() {
+        fetch(SERVER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'READ' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const tableContainer = document.getElementById('registros-table');
+            if (data.success && data.records.length > 0) {
+                let html = '<table><thead><tr><th>ID</th><th>Nombre</th><th>Matrícula</th><th>Carrera</th></tr></thead><tbody>';
+                data.records.forEach(record => {
+                    html += `<tr>
+                                <td>${record.id}</td>
+                                <td>${record.nombre}</td>
+                                <td>${record.matricula}</td>
+                                <td>${record.carrera}</td>
+                            </tr>`;
+                });
+                html += '</tbody></table>';
+                tableContainer.innerHTML = html;
+            } else {
+                tableContainer.innerHTML = `<p>${data.message || 'No hay registros para mostrar.'}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error al consultar:', error);
+            document.getElementById('registros-table').innerHTML = '<p class="error">Error al cargar los registros.</p>';
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', consultarRegistros);
+</script>
+
+</body>
+</html>
